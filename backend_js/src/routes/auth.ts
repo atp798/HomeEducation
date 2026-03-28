@@ -21,20 +21,34 @@ export function createAuthRouter(db: DatabaseAdapter): Router {
 
       const existing = userRepo.findByEmail(email)
       if (existing) {
-        res.status(409).json({ error: 'Email already registered' })
+        res.status(409).json({ error: '该邮箱已注册' })
         return
       }
 
       const password_hash = await hashPassword(password)
       const user = userRepo.create({ email, password_hash })
 
-      // Create default settings
       const now = new Date().toISOString()
+
+      // Create default settings
       db.run(
         'INSERT OR IGNORE INTO user_settings (user_id, created_at, updated_at) VALUES (?, ?, ?)',
         [user.id, now, now]
       )
 
+      // Generate email verification token (valid 24 hours)
+      const verificationToken = uuidv4()
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      db.run(
+        'INSERT INTO email_verification_tokens (id, user_id, token, expires_at, used, created_at) VALUES (?, ?, ?, ?, 0, ?)',
+        [uuidv4(), user.id, verificationToken, expiresAt, now]
+      )
+
+      // Mock: return verification link in response (remove in production when real email is set up)
+      const verifyUrl = `${req.protocol}://${req.get('host')}/verify-email?token=${verificationToken}`
+      console.log(`[Mock Email] Verification link for ${email}: ${verifyUrl}`)
+
+      // Issue token immediately so user can log in without verifying (per requirements)
       const token = jwt.sign(
         { id: user.id, email: user.email },
         config.jwtSecret,
@@ -43,10 +57,75 @@ export function createAuthRouter(db: DatabaseAdapter): Router {
 
       res.json({
         token,
-        user: { id: user.id, email: user.email, phone: user.phone },
+        user: { id: user.id, email: user.email, phone: user.phone, email_verified: 0 },
+        // Mock only — remove when real email service is configured
+        verifyUrl,
+        verificationToken,
       })
     } catch (err) {
       console.error('Register error:', err)
+      res.status(500).json({ error: 'Internal server error' })
+    }
+  })
+
+  // GET /auth/verify-email?token=xxx
+  router.get('/verify-email', async (req: Request, res: Response) => {
+    try {
+      const { token } = req.query
+      if (!token || typeof token !== 'string') {
+        res.status(400).json({ error: '无效的激活链接' })
+        return
+      }
+
+      const now = new Date().toISOString()
+      const record = db.get<{ id: string; user_id: string; used: number; expires_at: string }>(
+        'SELECT * FROM email_verification_tokens WHERE token = ? LIMIT 1',
+        [token]
+      )
+
+      if (!record) {
+        res.status(400).json({ error: '激活链接无效' })
+        return
+      }
+      if (record.used) {
+        res.status(400).json({ error: '激活链接已使用' })
+        return
+      }
+      if (record.expires_at < now) {
+        res.status(400).json({ error: '激活链接已过期，请重新注册或申请新链接' })
+        return
+      }
+
+      // Mark token as used and set user email_verified
+      db.run('UPDATE email_verification_tokens SET used = 1 WHERE id = ?', [record.id])
+      db.run('UPDATE users SET email_verified = 1, updated_at = ? WHERE id = ?', [now, record.user_id])
+
+      const user = userRepo.findById(record.user_id)
+      if (!user) {
+        res.status(404).json({ error: '用户不存在' })
+        return
+      }
+
+      // Log login
+      const ip = req.ip || req.socket.remoteAddress || ''
+      const device = req.headers['user-agent'] || ''
+      db.run(
+        'INSERT INTO login_logs (id, user_id, ip, device, created_at) VALUES (?, ?, ?, ?, ?)',
+        [uuidv4(), user.id, ip, device, now]
+      )
+
+      const jwtToken = jwt.sign(
+        { id: user.id, email: user.email },
+        config.jwtSecret,
+        { expiresIn: '7d' }
+      )
+
+      res.json({
+        token: jwtToken,
+        user: { id: user.id, email: user.email, phone: user.phone, email_verified: 1 },
+      })
+    } catch (err) {
+      console.error('Verify email error:', err)
       res.status(500).json({ error: 'Internal server error' })
     }
   })
@@ -91,7 +170,7 @@ export function createAuthRouter(db: DatabaseAdapter): Router {
 
         res.json({
           token,
-          user: { id: user.id, email: user.email, phone: user.phone },
+          user: { id: user.id, email: user.email, phone: user.phone, email_verified: user.email_verified },
         })
       } else if (type === 'phone') {
         const { phone, code } = req.body
@@ -138,7 +217,7 @@ export function createAuthRouter(db: DatabaseAdapter): Router {
 
         res.json({
           token,
-          user: { id: user.id, email: user.email, phone: user.phone },
+          user: { id: user.id, email: user.email, phone: user.phone, email_verified: user.email_verified },
         })
       } else {
         res.status(400).json({ error: 'Invalid login type' })

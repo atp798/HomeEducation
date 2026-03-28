@@ -6,6 +6,7 @@ export interface User {
   email: string | null
   phone: string | null
   password_hash: string | null
+  email_verified: number
   created_at: string
   updated_at: string
 }
