@@ -1,3 +1,9 @@
+.claude
+node_modules
+
+#########################################
+# below is generated for python dev automatically
+#########################################
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
