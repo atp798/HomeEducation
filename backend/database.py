@@ -24,8 +24,18 @@ def run_migrations(conn: sqlite3.Connection) -> None:
             email TEXT UNIQUE,
             phone TEXT UNIQUE,
             password_hash TEXT,
+            email_verified INTEGER DEFAULT 0,
             created_at TEXT DEFAULT (datetime('now')),
             updated_at TEXT DEFAULT (datetime('now'))
+        );
+
+        CREATE TABLE IF NOT EXISTS email_verification_tokens (
+            id TEXT PRIMARY KEY,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            token TEXT NOT NULL UNIQUE,
+            expires_at TEXT NOT NULL,
+            used INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT (datetime('now'))
         );
 
         CREATE TABLE IF NOT EXISTS otp_codes (
@@ -77,6 +87,13 @@ def run_migrations(conn: sqlite3.Connection) -> None:
         );
     """)
     conn.commit()
+
+    # Add email_verified to existing databases that predate this migration
+    try:
+        conn.execute("ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
 
 
 # Global connection pool (one connection, thread-safe via check_same_thread=False + mutex in repos)
