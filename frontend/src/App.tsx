@@ -5,6 +5,8 @@ import { useTheme } from './hooks/useTheme'
 import { ToastProvider } from './components/Toast'
 import { I18nProvider } from './i18n'
 import Login from './pages/Login'
+import Register from './pages/Register'
+import VerifyEmail from './pages/VerifyEmail'
 import MainLayout from './pages/MainLayout'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -25,6 +27,8 @@ function AppInner() {
   return (
     <Routes>
       <Route path="/login" element={token ? <Navigate to="/chat" replace /> : <Login />} />
+      <Route path="/register" element={token ? <Navigate to="/chat" replace /> : <Register />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
       <Route path="/chat" element={<RequireAuth><MainLayout defaultTab="chat" /></RequireAuth>} />
       <Route path="/history" element={<RequireAuth><MainLayout defaultTab="history" /></RequireAuth>} />
       <Route path="/settings" element={<RequireAuth><MainLayout defaultTab="settings" /></RequireAuth>} />

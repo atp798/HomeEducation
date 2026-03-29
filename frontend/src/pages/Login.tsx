@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Eye, EyeOff, Phone, Mail, RefreshCw } from 'lucide-react'
 import { authApi } from '../api/client'
 import { useAuthStore } from '../store/authStore'
-import { PasswordStrength } from '../components/PasswordStrength'
 import { useToast } from '../components/Toast'
 
 type LoginTab = 'email' | 'phone'
@@ -27,7 +26,6 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
-  const [isRegister, setIsRegister] = useState(false)
   const [countryCode, setCountryCode] = useState('+86')
   const [phone, setPhone] = useState('')
   const [otp, setOtp] = useState('')
@@ -85,17 +83,12 @@ export default function Login() {
     }
     try {
       setLoading(true)
-      let res
-      if (isRegister) {
-        res = await authApi.register(email, password)
-      } else {
-        res = await authApi.loginEmail(email, password)
-      }
+      const res = await authApi.loginEmail(email, password)
       setAuth(res.data.token, res.data.user)
-      showToast(isRegister ? '注册成功！' : '登录成功！', 'success')
+      showToast('登录成功！', 'success')
       navigate('/chat', { replace: true })
     } catch (err: any) {
-      showToast(err?.response?.data?.error || '操作失败', 'error')
+      showToast(err?.response?.data?.error || '登录失败', 'error')
     } finally {
       setLoading(false)
     }
@@ -195,7 +188,7 @@ export default function Login() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="请输入密码"
-                      autoComplete={isRegister ? 'new-password' : 'current-password'}
+                      autoComplete="current-password"
                       className="w-full px-3 py-2.5 pr-10 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400"
                     />
                     <button
@@ -206,28 +199,25 @@ export default function Login() {
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  {isRegister && <PasswordStrength password={password} />}
                 </div>
 
-                {!isRegister && (
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={rememberMe}
-                        onChange={(e) => setRememberMe(e.target.checked)}
-                        className="rounded border-gray-300 text-brand"
-                      />
-                      记住我
-                    </label>
-                    <button
-                      type="button"
-                      className="text-sm text-brand dark:text-brand-light hover:underline"
-                    >
-                      忘记密码?
-                    </button>
-                  </div>
-                )}
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="rounded border-gray-300 text-brand"
+                    />
+                    记住我
+                  </label>
+                  <button
+                    type="button"
+                    className="text-sm text-brand dark:text-brand-light hover:underline"
+                  >
+                    忘记密码?
+                  </button>
+                </div>
 
                 <button
                   type="submit"
@@ -235,18 +225,17 @@ export default function Login() {
                   className="w-full bg-brand hover:bg-brand-dark text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {loading && <RefreshCw className="w-4 h-4 animate-spin" />}
-                  {isRegister ? '注册账号' : '登录'}
+                  登录
                 </button>
 
                 <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-                  {isRegister ? '已有账号？' : '没有账号？'}
-                  <button
-                    type="button"
-                    onClick={() => setIsRegister(!isRegister)}
+                  没有账号？
+                  <Link
+                    to="/register"
                     className="text-brand dark:text-brand-light hover:underline ml-1"
                   >
-                    {isRegister ? '立即登录' : '免费注册'}
-                  </button>
+                    免费注册
+                  </Link>
                 </p>
               </form>
             ) : (

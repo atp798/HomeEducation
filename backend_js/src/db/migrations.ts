@@ -7,10 +7,18 @@ export function runMigrations(db: DatabaseAdapter): void {
       email TEXT UNIQUE,
       phone TEXT UNIQUE,
       password_hash TEXT,
+      email_verified INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `)
+
+  // Add email_verified column to existing databases that predate this migration
+  try {
+    db.run(`ALTER TABLE users ADD COLUMN email_verified INTEGER NOT NULL DEFAULT 0`)
+  } catch {
+    // Column already exists — safe to ignore
+  }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS otp_codes (
@@ -45,6 +53,18 @@ export function runMigrations(db: DatabaseAdapter): void {
       content TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+    )
+  `)
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS email_verification_tokens (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      token TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL,
+      used INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `)
 

@@ -113,7 +113,10 @@ export function streamChat(
 // --- Auth ---
 export const authApi = {
   register: (email: string, password: string) =>
-    api.post<AuthResponse>('/auth/register', { email, password }),
+    api.post<RegisterResponse>('/auth/register', { email, password }),
+
+  verifyEmail: (token: string) =>
+    api.get<AuthResponse>(`/auth/verify-email?token=${encodeURIComponent(token)}`),
 
   loginEmail: (email: string, password: string) =>
     api.post<AuthResponse>('/auth/login', { type: 'email', email, password }),
@@ -173,10 +176,16 @@ export interface AuthResponse {
   user: User
 }
 
+export interface RegisterResponse extends AuthResponse {
+  verifyUrl?: string
+  verificationToken?: string
+}
+
 export interface User {
   id: string
   email: string | null
   phone: string | null
+  email_verified?: number
 }
 
 export interface Session {
