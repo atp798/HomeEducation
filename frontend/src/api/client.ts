@@ -118,6 +118,9 @@ export const authApi = {
   verifyEmail: (token: string) =>
     api.get<AuthResponse>(`/auth/verify-email?token=${encodeURIComponent(token)}`),
 
+  resendVerification: (email: string) =>
+    api.post<{ message: string }>('/auth/resend-verification', { email }),
+
   loginEmail: (email: string, password: string) =>
     api.post<AuthResponse>('/auth/login', { type: 'email', email, password }),
 
@@ -126,6 +129,12 @@ export const authApi = {
 
   sendOtp: (phone: string) =>
     api.post<{ message: string; code?: string; expiresIn: number }>('/auth/send-otp', { phone }),
+
+  requestDelete: () =>
+    api.post<{ message: string }>('/auth/request-delete'),
+
+  confirmDelete: (token: string) =>
+    api.get<{ message: string }>(`/auth/confirm-delete?token=${encodeURIComponent(token)}`),
 }
 
 // --- Chat ---
@@ -176,10 +185,7 @@ export interface AuthResponse {
   user: User
 }
 
-export interface RegisterResponse extends AuthResponse {
-  verifyUrl?: string
-  verificationToken?: string
-}
+export interface RegisterResponse extends AuthResponse {}
 
 export interface User {
   id: string

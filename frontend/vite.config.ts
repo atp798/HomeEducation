@@ -9,7 +9,8 @@ export default defineConfig({
     globals: true,
   },
   server: {
-    port: 5173,
+    host: '0.0.0.0',
+    port: 7194,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

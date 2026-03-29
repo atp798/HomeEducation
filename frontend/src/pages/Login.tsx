@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Eye, EyeOff, Phone, Mail, RefreshCw } from 'lucide-react'
+import { Eye, EyeOff, Phone, Mail, RefreshCw, AlertCircle } from 'lucide-react'
 import { authApi } from '../api/client'
 import { useAuthStore } from '../store/authStore'
 import { useToast } from '../components/Toast'
+import { useTranslation } from '../i18n'
 
 type LoginTab = 'email' | 'phone'
 
@@ -20,6 +21,7 @@ export default function Login() {
   const navigate = useNavigate()
   const { token, setAuth } = useAuthStore()
   const { showToast } = useToast()
+  const { t } = useTranslation()
 
   const [tab, setTab] = useState<LoginTab>('email')
   const [email, setEmail] = useState('')
@@ -33,10 +35,13 @@ export default function Login() {
   const [mockOtp, setMockOtp] = useState('')
   const [loading, setLoading] = useState(false)
 
+  // Email-not-verified state
+  const [emailNotVerified, setEmailNotVerified] = useState(false)
+  const [unverifiedEmail, setUnverifiedEmail] = useState('')
+  const [resendLoading, setResendLoading] = useState(false)
+
   useEffect(() => {
-    if (token) {
-      navigate('/chat', { replace: true })
-    }
+    if (token) navigate('/chat', { replace: true })
   }, [token, navigate])
 
   useEffect(() => {
@@ -45,6 +50,13 @@ export default function Login() {
       return () => clearTimeout(timer)
     }
   }, [otpCountdown])
+
+  // Reset not-verified banner when user edits the email field
+  useEffect(() => {
+    if (emailNotVerified && email !== unverifiedEmail) {
+      setEmailNotVerified(false)
+    }
+  }, [email]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 
@@ -65,7 +77,7 @@ export default function Login() {
         showToast('验证码已发送', 'success')
       }
     } catch (err: any) {
-      showToast(err?.response?.data?.error || '发送失败', 'error')
+      showToast(err?.response?.data?.detail || err?.response?.data?.error || '发送失败', 'error')
     } finally {
       setLoading(false)
     }
@@ -73,6 +85,7 @@ export default function Login() {
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setEmailNotVerified(false)
     if (!validateEmail(email)) {
       showToast('请输入有效的邮箱地址', 'error')
       return
@@ -88,7 +101,13 @@ export default function Login() {
       showToast('登录成功！', 'success')
       navigate('/chat', { replace: true })
     } catch (err: any) {
-      showToast(err?.response?.data?.error || '登录失败', 'error')
+      const detail = err?.response?.data?.detail
+      if (err?.response?.status === 403 && detail === 'EMAIL_NOT_VERIFIED') {
+        setEmailNotVerified(true)
+        setUnverifiedEmail(email)
+      } else {
+        showToast(detail || err?.response?.data?.error || '登录失败', 'error')
+      }
     } finally {
       setLoading(false)
     }
@@ -112,9 +131,27 @@ export default function Login() {
       showToast('登录成功！', 'success')
       navigate('/chat', { replace: true })
     } catch (err: any) {
-      showToast(err?.response?.data?.error || '登录失败，验证码错误或已过期', 'error')
+      showToast(
+        err?.response?.data?.detail || err?.response?.data?.error || '登录失败，验证码错误或已过期',
+        'error',
+      )
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleResendVerification = async () => {
+    try {
+      setResendLoading(true)
+      await authApi.resendVerification(unverifiedEmail)
+      showToast(t('login.resendSent'), 'success')
+    } catch (err: any) {
+      showToast(
+        err?.response?.data?.detail || err?.response?.data?.error || t('login.resendFailed'),
+        'error',
+      )
+    } finally {
+      setResendLoading(false)
     }
   }
 
@@ -164,6 +201,27 @@ export default function Login() {
           <div className="p-6">
             {tab === 'email' ? (
               <form onSubmit={handleEmailSubmit} className="space-y-4">
+                {/* Email-not-verified warning banner */}
+                {emailNotVerified && (
+                  <div className="flex gap-3 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-amber-700 dark:text-amber-400">
+                        {t('login.emailNotVerified')}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={handleResendVerification}
+                        disabled={resendLoading}
+                        className="mt-1.5 text-xs font-medium text-amber-700 dark:text-amber-400 hover:underline disabled:opacity-50 flex items-center gap-1"
+                      >
+                        {resendLoading && <RefreshCw className="w-3 h-3 animate-spin" />}
+                        {t('login.resendVerification')}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     邮箱地址

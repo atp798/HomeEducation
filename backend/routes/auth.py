@@ -1,15 +1,16 @@
 import uuid
 import logging
 from datetime import datetime, timezone, timedelta
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, HTTPException, Request, Depends, status
 from pydantic import BaseModel
 from typing import Optional
 
 from config import config
 from database import get_db
+from dependencies import get_current_user
 from repositories.user import UserRepository, OtpRepository
 from utils.auth import hash_password, verify_password, sign_token, generate_otp
-from services.notify import send_sms_code, send_email_code
+from services.notify import send_sms_code, send_email_code, send_verification_email, send_deletion_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -33,6 +34,10 @@ class SendOtpRequest(BaseModel):
     email: Optional[str] = None
 
 
+class ResendVerificationRequest(BaseModel):
+    email: str
+
+
 def _log_login(db, user_id: str, request: Request) -> None:
     ip = request.client.host if request.client else None
     device = request.headers.get("user-agent")
@@ -42,6 +47,22 @@ def _log_login(db, user_id: str, request: Request) -> None:
         (log_id, user_id, ip, device),
     )
     db.commit()
+
+
+def _create_verification_token(db, user_id: str) -> str:
+    """Create a new email verification token, replacing any existing unused ones."""
+    db.execute(
+        "DELETE FROM email_verification_tokens WHERE user_id = ? AND used = 0",
+        (user_id,),
+    )
+    token = str(uuid.uuid4())
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
+    db.execute(
+        "INSERT INTO email_verification_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)",
+        (str(uuid.uuid4()), user_id, token, expires_at),
+    )
+    db.commit()
+    return token
 
 
 @router.post("/register")
@@ -55,30 +76,50 @@ async def register(body: RegisterRequest, request: Request):
     user = repo.create(email=body.email, password_hash=hash_password(body.password))
 
     # Generate email verification token (valid 24 hours)
-    verification_token = str(uuid.uuid4())
-    expires_at = (datetime.now(timezone.utc) + timedelta(hours=24)).strftime("%Y-%m-%d %H:%M:%S")
-    db.execute(
-        "INSERT INTO email_verification_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)",
-        (str(uuid.uuid4()), user["id"], verification_token, expires_at),
-    )
-    db.commit()
+    verification_token = _create_verification_token(db, user["id"])
 
     # Build verification URL pointing at the frontend
-    frontend_origin = config.cors_origin.rstrip("/")
-    verify_url = f"{frontend_origin}/verify-email?token={verification_token}"
+    verify_url = f"{config.frontend_url.rstrip('/')}/verify-email?token={verification_token}"
 
-    # Mock: log the link; replace with real email send when mail service is ready
-    logger.info(f"[Mock Email] Verification link for {body.email}: {verify_url}")
+    # Send activation email — non-fatal: if email fails, registration still succeeds
+    # and the user can request a resend from the login page.
+    try:
+        send_verification_email(body.email, body.email, verify_url)
+    except Exception as e:
+        logger.warning(f"Verification email could not be sent to {body.email}: {e}. Registration completed.")
 
-    # Issue JWT immediately — login works without verifying email (per requirements)
+    # Issue JWT immediately — user can use the app, but certain features may
+    # require email verification in the future.
     token = sign_token({"id": user["id"], "email": user["email"]})
     return {
         "token": token,
         "user": {"id": user["id"], "email": user["email"], "phone": user["phone"], "email_verified": 0},
-        # Mock only — remove when real email service is configured
-        "verifyUrl": verify_url,
-        "verificationToken": verification_token,
     }
+
+
+@router.post("/resend-verification")
+async def resend_verification(body: ResendVerificationRequest):
+    """Re-send the activation email.  Safe to call even for unknown addresses (no info leak)."""
+    db = get_db()
+    repo = UserRepository(db)
+    user = repo.find_by_email(body.email)
+
+    # Always return 200 to avoid leaking whether the email exists.
+    if not user:
+        return {"message": "如果该邮箱已注册且未验证，激活邮件将在片刻后发送"}
+    if user.get("email_verified"):
+        return {"message": "该邮箱已完成验证，请直接登录"}
+
+    verification_token = _create_verification_token(db, user["id"])
+    verify_url = f"{config.frontend_url.rstrip('/')}/verify-email?token={verification_token}"
+
+    try:
+        send_verification_email(body.email, body.email, verify_url)
+    except Exception as e:
+        logger.error(f"Failed to resend verification email to {body.email}: {e}")
+        raise HTTPException(status_code=500, detail="邮件发送失败，请稍后重试")
+
+    return {"message": "激活邮件已重新发送，请查收邮件"}
 
 
 @router.get("/verify-email")
@@ -95,7 +136,7 @@ async def verify_email(token: str, request: Request):
     if row["used"]:
         raise HTTPException(status_code=400, detail="激活链接已使用")
     if row["expires_at"] < datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"):
-        raise HTTPException(status_code=400, detail="激活链接已过期，请重新注册或申请新链接")
+        raise HTTPException(status_code=400, detail="激活链接已过期，请重新发送激活邮件")
 
     # Mark token used and verify user email
     db.execute("UPDATE email_verification_tokens SET used = 1 WHERE id = ?", (row["id"],))
@@ -127,19 +168,22 @@ async def login(body: LoginRequest, request: Request):
 
     if body.type == "email":
         if not body.email or not body.password:
-            raise HTTPException(status_code=400, detail="Email and password required")
+            raise HTTPException(status_code=400, detail="请填写邮箱和密码")
         user = user_repo.find_by_email(body.email)
         if not user or not user.get("password_hash"):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            raise HTTPException(status_code=401, detail="邮箱或密码错误")
         if not verify_password(body.password, user["password_hash"]):
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+            raise HTTPException(status_code=401, detail="邮箱或密码错误")
+        # Require email verification before login
+        if not user.get("email_verified"):
+            raise HTTPException(status_code=403, detail="EMAIL_NOT_VERIFIED")
 
     elif body.type == "phone":
         if not body.phone or not body.code:
             raise HTTPException(status_code=400, detail="Phone and code required")
         otp = otp_repo.find_valid(phone=body.phone, code=body.code)
         if not otp:
-            raise HTTPException(status_code=401, detail="Invalid or expired OTP")
+            raise HTTPException(status_code=401, detail="验证码错误或已过期")
         otp_repo.mark_used(otp["id"])
         user = user_repo.find_or_create_by_phone(body.phone)
 
@@ -175,3 +219,79 @@ async def send_otp(body: SendOtpRequest):
         return {"message": "OTP sent to email"}
     else:
         raise HTTPException(status_code=400, detail="Phone or email required")
+
+
+# ───────────────────────── Account Deletion ─────────────────────────
+
+@router.post("/request-delete")
+async def request_delete(request: Request, user=Depends(get_current_user)):
+    """Send a deletion-confirmation email.  The account is NOT deleted until the link is clicked."""
+    db = get_db()
+    repo = UserRepository(db)
+    user_row = repo.find_by_id(user["id"])
+
+    if not user_row or not user_row.get("email"):
+        raise HTTPException(status_code=400, detail="账号未绑定邮箱，无法通过邮件验证注销")
+
+    # Replace any existing unused deletion tokens
+    db.execute(
+        "DELETE FROM account_deletion_tokens WHERE user_id = ? AND used = 0",
+        (user_row["id"],),
+    )
+    deletion_token = str(uuid.uuid4())
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+    db.execute(
+        "INSERT INTO account_deletion_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)",
+        (str(uuid.uuid4()), user_row["id"], deletion_token, expires_at),
+    )
+    db.commit()
+
+    delete_url = f"{config.frontend_url.rstrip('/')}/confirm-delete?token={deletion_token}"
+
+    try:
+        send_deletion_email(user_row["email"], user_row["email"], delete_url)
+    except Exception as e:
+        logger.error(f"Failed to send deletion email to {user_row['email']}: {e}")
+        raise HTTPException(status_code=500, detail="邮件发送失败，请稍后重试")
+
+    return {"message": "注销确认邮件已发送，请在1小时内点击邮件中的链接完成注销"}
+
+
+@router.get("/confirm-delete")
+async def confirm_delete(token: str):
+    """Validate the deletion token and permanently delete the account."""
+    db = get_db()
+
+    row = db.execute(
+        "SELECT * FROM account_deletion_tokens WHERE token = ? LIMIT 1",
+        (token,),
+    ).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=400, detail="注销链接无效")
+    if row["used"]:
+        raise HTTPException(status_code=400, detail="注销链接已使用")
+    if row["expires_at"] < datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"):
+        raise HTTPException(status_code=400, detail="注销链接已过期，请重新发起注销申请")
+
+    user_id = row["user_id"]
+
+    # Mark token used before deleting (guards against double-click)
+    db.execute("UPDATE account_deletion_tokens SET used = 1 WHERE id = ?", (row["id"],))
+    db.commit()
+
+    # Delete all user data in dependency order
+    db.execute(
+        "DELETE FROM messages WHERE session_id IN (SELECT id FROM sessions WHERE user_id = ?)",
+        (user_id,),
+    )
+    db.execute("DELETE FROM sessions WHERE user_id = ?", (user_id,))
+    db.execute("DELETE FROM login_logs WHERE user_id = ?", (user_id,))
+    db.execute("DELETE FROM user_settings WHERE user_id = ?", (user_id,))
+    db.execute("DELETE FROM otp_codes WHERE user_id = ?", (user_id,))
+    db.execute("DELETE FROM email_verification_tokens WHERE user_id = ?", (user_id,))
+    db.execute("DELETE FROM account_deletion_tokens WHERE user_id = ?", (user_id,))
+    db.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    db.commit()
+
+    return {"message": "账号已成功注销，感谢您使用 Nutrilog"}

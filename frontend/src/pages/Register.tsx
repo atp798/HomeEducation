@@ -20,7 +20,6 @@ export default function Register() {
 
   // After register success, show "check email" screen
   const [registered, setRegistered] = useState(false)
-  const [mockVerifyUrl, setMockVerifyUrl] = useState<string | null>(null)
 
   useEffect(() => {
     if (token) navigate('/chat', { replace: true })
@@ -44,11 +43,10 @@ export default function Register() {
     }
     try {
       setLoading(true)
-      const res = await authApi.register(email, password)
-      setMockVerifyUrl(res.data.verifyUrl || null)
+      await authApi.register(email, password)
       setRegistered(true)
     } catch (err: any) {
-      showToast(err?.response?.data?.error || '注册失败', 'error')
+      showToast(err?.response?.data?.detail || err?.response?.data?.error || '注册失败', 'error')
     } finally {
       setLoading(false)
     }
@@ -69,20 +67,6 @@ export default function Register() {
             <p className="text-xs text-gray-400 dark:text-gray-500 mb-6">
               激活前仍可正常登录使用，激活后账号状态将更新。
             </p>
-
-            {mockVerifyUrl && (
-              <div className="mb-6 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg text-left">
-                <p className="text-xs font-medium text-amber-700 dark:text-amber-400 mb-1">
-                  开发模式 — 模拟激活链接：
-                </p>
-                <a
-                  href={mockVerifyUrl}
-                  className="text-xs text-blue-600 dark:text-blue-400 hover:underline break-all"
-                >
-                  {mockVerifyUrl}
-                </a>
-              </div>
-            )}
 
             <div className="flex flex-col gap-2">
               <button

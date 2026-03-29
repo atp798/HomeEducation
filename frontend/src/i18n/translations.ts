@@ -92,6 +92,18 @@ const zh: Record<string, string> = {
   'settings.logout': '退出登录',
   'settings.loadFailed': '加载设置失败',
   'settings.saveFailed': '保存失败',
+  'settings.deleteAccount': '注销账户',
+  'settings.deleteAccountTitle': '确认注销账户',
+  'settings.deleteAccountDesc': '注销后，您的所有聊天记录、设置及账号信息将被永久删除且无法恢复。系统将向您的邮箱发送一封确认邮件，请在1小时内点击邮件中的链接完成注销。',
+  'settings.deleteAccountBtn': '发送注销确认邮件',
+  'settings.deleteAccountSending': '发送中...',
+  'settings.deleteAccountSent': '注销确认邮件已发送，请查收邮件并点击其中的链接完成注销',
+  'settings.deleteAccountFailed': '操作失败，请稍后重试',
+  'settings.deleteNoEmail': '账号未绑定邮箱，无法通过邮件验证注销',
+  'login.emailNotVerified': '邮箱尚未激活，请查收注册时发送的激活邮件',
+  'login.resendVerification': '重新发送激活邮件',
+  'login.resendSent': '激活邮件已重新发送，请查收邮箱',
+  'login.resendFailed': '发送失败，请稍后重试',
 }
 
 const en: Record<string, string> = {
@@ -186,6 +198,18 @@ const en: Record<string, string> = {
   'settings.logout': 'Log Out',
   'settings.loadFailed': 'Failed to load settings',
   'settings.saveFailed': 'Save failed',
+  'settings.deleteAccount': 'Delete Account',
+  'settings.deleteAccountTitle': 'Confirm Account Deletion',
+  'settings.deleteAccountDesc': 'All your chat history, settings, and account information will be permanently deleted and cannot be recovered. A confirmation email will be sent to your registered address. Please click the link in the email within 1 hour to complete the deletion.',
+  'settings.deleteAccountBtn': 'Send Confirmation Email',
+  'settings.deleteAccountSending': 'Sending...',
+  'settings.deleteAccountSent': 'Deletion confirmation email sent. Please check your inbox and click the link to finalize.',
+  'settings.deleteAccountFailed': 'Action failed, please try again',
+  'settings.deleteNoEmail': 'No email address linked to this account',
+  'login.emailNotVerified': 'Email not verified. Please check the activation email sent at registration.',
+  'login.resendVerification': 'Resend Activation Email',
+  'login.resendSent': 'Activation email resent, please check your inbox',
+  'login.resendFailed': 'Failed to send, please try again',
 }
 
 export const translations: Record<Locale, Record<string, string>> = { zh, en }
