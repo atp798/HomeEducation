@@ -170,6 +170,58 @@ def send_deletion_email(to: str, nickname: str, delete_link: str) -> None:
         raise
 
 
+def send_password_reset_email(to: str, nickname: str, reset_link: str) -> None:
+    if config.email_provider == "mock":
+        logger.info(f"[Mock Email] Password reset link for {to}: {reset_link}")
+        return
+
+    subject = f"【{APP_NAME_ZH}】重置你的密码"
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{APP_NAME_ZH} 密码重置</title>
+<style>
+    body {{font-family: "PingFang SC", "Microsoft YaHei", sans-serif; margin: 0; padding: 0; background-color: #f8fafc;}}
+    .container {{max-width: 600px; margin: 30px auto; padding: 20px; background-color: #ffffff; border-radius: 8px;}}
+    .header {{text-align: center; padding-bottom: 20px; border-bottom: 1px solid #f0f0f0;}}
+    .logo {{font-size: 22px; font-weight: 700; color: #22c55e;}}
+    .content {{padding: 30px 20px; line-height: 1.6; color: #333333; font-size: 16px;}}
+    .reset-btn {{display: block; width: 80%; max-width: 300px; height: 48px; line-height: 48px;
+                 background-color: #3b82f6; color: #ffffff !important; text-align: center;
+                 border-radius: 6px; text-decoration: none; font-size: 16px; font-weight: 600; margin: 30px auto;}}
+    .link-box {{word-break: break-all; font-size: 13px; color: #666; padding: 10px; background: #f5f5f5; border-radius: 4px;}}
+    .tips {{font-size: 14px; color: #666666; line-height: 1.5; margin-top: 20px;}}
+    .footer {{text-align: center; padding-top: 20px; border-top: 1px solid #f0f0f0; font-size: 12px; color: #999999;}}
+</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header"><div class="logo">{APP_NAME_ZH}</div></div>
+        <div class="content">
+            <p>Hi {nickname}，</p>
+            <p>我们收到了您的密码重置申请。点击下方按钮设置新密码。</p>
+            <a href="{reset_link}" class="reset-btn" target="_blank">重置密码</a>
+            <p class="tips">如果按钮无法点击，请复制下方链接到浏览器中打开：</p>
+            <div class="link-box">{reset_link}</div>
+            <p class="tips">⚠️ 重置链接 <strong>1小时内有效</strong>，且仅可使用1次，请勿转发给他人。</p>
+            <p class="tips">如果您没有申请重置密码，请直接忽略此邮件，您的账号密码不会发生任何变化。</p>
+            <p style="text-align: right; margin-top: 30px;">{APP_NAME_ZH} 团队</p>
+        </div>
+        <div class="footer"><p>© 2026 {APP_NAME}</p></div>
+    </div>
+</body>
+</html>"""
+
+    try:
+        _send_smtp(to, subject, html)
+        logger.info(f"Password reset email sent to {to}")
+    except Exception as e:
+        logger.error(f"Failed to send password reset email to {to}: {e}")
+        raise
+
+
 def send_sms_code(phone: str, code: str) -> None:
     if config.sms_provider == "mock":
         logger.info(f"[Mock SMS] To: {phone}, Code: {code}")

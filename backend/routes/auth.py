@@ -10,7 +10,7 @@ from database import get_db
 from dependencies import get_current_user
 from repositories.user import UserRepository, OtpRepository
 from utils.auth import hash_password, verify_password, sign_token, generate_otp
-from services.notify import send_sms_code, send_email_code, send_verification_email, send_deletion_email
+from services.notify import send_sms_code, send_email_code, send_verification_email, send_deletion_email, send_password_reset_email
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 logger = logging.getLogger(__name__)
@@ -294,4 +294,102 @@ async def confirm_delete(token: str):
     db.execute("DELETE FROM users WHERE id = ?", (user_id,))
     db.commit()
 
-    return {"message": "账号已成功注销，感谢您使用 Nutrilog"}
+    return {"message": "账号已成功注销，感谢您使用家庭教育咨询"}
+
+
+# ───────────────────────── Password Reset ─────────────────────────
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    password: str
+
+
+def _create_password_reset_token(db, user_id: str) -> str:
+    """Create a password reset token (1-hour expiry), replacing any existing unused ones."""
+    db.execute(
+        "DELETE FROM password_reset_tokens WHERE user_id = ? AND used = 0",
+        (user_id,),
+    )
+    token = str(uuid.uuid4())
+    expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
+    db.execute(
+        "INSERT INTO password_reset_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)",
+        (str(uuid.uuid4()), user_id, token, expires_at),
+    )
+    db.commit()
+    return token
+
+
+@router.post("/forgot-password")
+async def forgot_password(body: ForgotPasswordRequest):
+    """
+    Send a password-reset email.
+    Always returns 200 — never reveals whether the address is registered (no info leak).
+    """
+    db = get_db()
+    repo = UserRepository(db)
+    user = repo.find_by_email(body.email)
+
+    if user:
+        reset_token = _create_password_reset_token(db, user["id"])
+        reset_url = f"{config.frontend_url.rstrip('/')}/reset-password?token={reset_token}"
+        try:
+            send_password_reset_email(body.email, body.email, reset_url)
+        except Exception as e:
+            logger.error(f"Failed to send password reset email to {body.email}: {e}")
+            # Still return 200 — we don't reveal failures to prevent enumeration
+
+    return {"message": "如果该邮箱已注册，密码重置邮件将在片刻后发送，请查收邮件"}
+
+
+@router.post("/reset-password")
+async def reset_password(body: ResetPasswordRequest, request: Request):
+    """Validate the reset token, update the password, and return a JWT for auto-login."""
+    if not body.password or len(body.password) < 6:
+        raise HTTPException(status_code=400, detail="密码至少6位")
+
+    db = get_db()
+
+    row = db.execute(
+        "SELECT * FROM password_reset_tokens WHERE token = ? LIMIT 1",
+        (body.token,),
+    ).fetchone()
+
+    if not row:
+        raise HTTPException(status_code=400, detail="重置链接无效")
+    if row["used"]:
+        raise HTTPException(status_code=400, detail="重置链接已使用")
+    if row["expires_at"] < datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"):
+        raise HTTPException(status_code=400, detail="重置链接已过期，请重新申请密码重置")
+
+    user_id = row["user_id"]
+
+    # Mark token used before updating password
+    db.execute("UPDATE password_reset_tokens SET used = 1 WHERE id = ?", (row["id"],))
+    db.execute(
+        "UPDATE users SET password_hash = ?, updated_at = datetime('now') WHERE id = ?",
+        (hash_password(body.password), user_id),
+    )
+    db.commit()
+
+    repo = UserRepository(db)
+    user = repo.find_by_id(user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="用户不存在")
+
+    _log_login(db, user["id"], request)
+
+    jwt_token = sign_token({"id": user["id"], "email": user.get("email"), "phone": user.get("phone")})
+    return {
+        "token": jwt_token,
+        "user": {
+            "id": user["id"],
+            "email": user.get("email"),
+            "phone": user.get("phone"),
+            "email_verified": user.get("email_verified", 0),
+        },
+    }

@@ -24,6 +24,10 @@ class Config:
     # Separate from CORS_ORIGIN — the public URL where the frontend is hosted,
     # used for generating email activation / deletion links.
     frontend_url: str = os.getenv("FRONTEND_URL", os.getenv("CORS_ORIGIN", "http://localhost:5173"))
+    # Logging — set LOG_LEVEL=DEBUG to see RAG retrieval details in the backend log
+    log_level: str = os.getenv("LOG_LEVEL", "INFO").upper()
+    # LOG_FILE: leave empty to log to console only; set a path (e.g. ./logs/app.log) to also write a rotating file
+    log_file: str = os.getenv("LOG_FILE", "")
 
 
 config = Config()

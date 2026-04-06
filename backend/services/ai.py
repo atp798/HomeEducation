@@ -91,11 +91,25 @@ async def stream_chat_completion(
         on_error(e)
 
 
-async def stream_chat_sse(messages: list[dict]) -> AsyncGenerator[str, None]:
+async def stream_chat_sse(
+    messages: list[dict],
+    context: Optional[str] = None,
+) -> AsyncGenerator[str, None]:
     """
     Yields raw SSE strings for use with FastAPI StreamingResponse.
     Handles reasoning phase (sends {"thinking": true} event once).
+
+    Args:
+        messages: Conversation history (user / assistant turns).
+        context:  Optional RAG context block to append to the system prompt.
+                  When provided, the AI uses the retrieved KB passages to
+                  ground its answer.
     """
+    # Build system prompt: base + optional RAG context
+    system_content = (
+        f"{SYSTEM_PROMPT}\n\n{context}" if context else SYSTEM_PROMPT
+    )
+
     endpoint = _get_endpoint()
     headers = {
         "Content-Type": "application/json",
@@ -105,7 +119,7 @@ async def stream_chat_sse(messages: list[dict]) -> AsyncGenerator[str, None]:
     }
     body = {
         "model": config.ai_model,
-        "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + messages,
+        "messages": [{"role": "system", "content": system_content}] + messages,
         "stream": True,
         "max_tokens": 2000,
         "temperature": 0.7,

@@ -135,6 +135,12 @@ export const authApi = {
 
   confirmDelete: (token: string) =>
     api.get<{ message: string }>(`/auth/confirm-delete?token=${encodeURIComponent(token)}`),
+
+  forgotPassword: (email: string) =>
+    api.post<{ message: string }>('/auth/forgot-password', { email }),
+
+  resetPassword: (token: string, password: string) =>
+    api.post<AuthResponse>('/auth/reset-password', { token, password }),
 }
 
 // --- Chat ---

@@ -1,4 +1,5 @@
 import json
+import logging
 import asyncio
 from fastapi import APIRouter, HTTPException, Depends, Request
 from fastapi.responses import StreamingResponse
@@ -10,8 +11,10 @@ from dependencies import get_current_user
 from repositories.session import SessionRepository
 from repositories.message import MessageRepository
 from services.ai import stream_chat_sse
+from services.rag import rag_service
 
 router = APIRouter(prefix="/chat", tags=["chat"])
+logger = logging.getLogger(__name__)
 
 
 class CreateSessionRequest(BaseModel):
@@ -122,7 +125,16 @@ async def stream_message(body: StreamMessageRequest, request: Request, user=Depe
     # Save user message
     msg_repo.create(sid, "user", body.content)
 
-    # Build message history for context
+    # ── RAG: retrieve relevant KB passages for this user query ──────────────
+    # Runs synchronously (index is in-memory); fast enough not to need a thread.
+    rag_context = rag_service.build_context(body.content)
+    if logger.isEnabledFor(logging.DEBUG):
+        if rag_context:
+            logger.debug("RAG context injected: %d chars", len(rag_context))
+        else:
+            logger.debug("RAG context: no relevant passages found for query %r", body.content[:80])
+
+    # Build conversation history for the AI (most recent 50 turns)
     all_messages = msg_repo.find_by_session_id(sid, size=50)
     chat_messages = [{"role": m["role"], "content": m["content"]} for m in all_messages]
 
@@ -130,7 +142,7 @@ async def stream_message(body: StreamMessageRequest, request: Request, user=Depe
     full_response = []
 
     async def generate() -> AsyncGenerator[str, None]:
-        async for chunk in stream_chat_sse(chat_messages):
+        async for chunk in stream_chat_sse(chat_messages, context=rag_context):
             # Parse chunk to accumulate text
             if chunk.startswith("data: "):
                 try:

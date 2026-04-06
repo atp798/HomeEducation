@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Eye, EyeOff, Phone, Mail, RefreshCw, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, Phone, Mail, RefreshCw, AlertCircle, ArrowLeft } from 'lucide-react'
 import { authApi } from '../api/client'
 import { useAuthStore } from '../store/authStore'
 import { useToast } from '../components/Toast'
@@ -39,6 +39,12 @@ export default function Login() {
   const [emailNotVerified, setEmailNotVerified] = useState(false)
   const [unverifiedEmail, setUnverifiedEmail] = useState('')
   const [resendLoading, setResendLoading] = useState(false)
+
+  // Forgot-password inline form state
+  const [showForgot, setShowForgot] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotLoading, setForgotLoading] = useState(false)
+  const [forgotSent, setForgotSent] = useState(false)
 
   useEffect(() => {
     if (token) navigate('/chat', { replace: true })
@@ -140,6 +146,23 @@ export default function Login() {
     }
   }
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!forgotEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(forgotEmail)) {
+      showToast('请输入有效的邮箱地址', 'error')
+      return
+    }
+    try {
+      setForgotLoading(true)
+      await authApi.forgotPassword(forgotEmail)
+      setForgotSent(true)
+    } catch {
+      showToast(t('login.forgotFailed'), 'error')
+    } finally {
+      setForgotLoading(false)
+    }
+  }
+
   const handleResendVerification = async () => {
     try {
       setResendLoading(true)
@@ -200,6 +223,49 @@ export default function Login() {
 
           <div className="p-6">
             {tab === 'email' ? (
+              showForgot ? (
+                /* ── Forgot-password inline panel ── */
+                <div className="space-y-4">
+                  <button
+                    type="button"
+                    onClick={() => { setShowForgot(false); setForgotSent(false); setForgotEmail('') }}
+                    className="flex items-center gap-1 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    {t('login.forgotBack')}
+                  </button>
+
+                  <div>
+                    <h2 className="text-base font-semibold text-gray-900 dark:text-white">{t('login.forgotTitle')}</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{t('login.forgotDesc')}</p>
+                  </div>
+
+                  {forgotSent ? (
+                    <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
+                      <p className="text-sm text-green-700 dark:text-green-400">{t('login.forgotSent')}</p>
+                    </div>
+                  ) : (
+                    <form onSubmit={handleForgotPassword} className="space-y-4">
+                      <input
+                        type="email"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        placeholder={t('login.forgotEmailPlaceholder')}
+                        autoComplete="email"
+                        className="w-full px-3 py-2.5 border border-gray-200 dark:border-gray-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-brand bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400"
+                      />
+                      <button
+                        type="submit"
+                        disabled={forgotLoading}
+                        className="w-full bg-brand hover:bg-brand-dark text-white font-medium py-2.5 rounded-lg text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {forgotLoading && <RefreshCw className="w-4 h-4 animate-spin" />}
+                        {forgotLoading ? t('login.forgotSending') : t('login.forgotSend')}
+                      </button>
+                    </form>
+                  )}
+                </div>
+              ) : (
               <form onSubmit={handleEmailSubmit} className="space-y-4">
                 {/* Email-not-verified warning banner */}
                 {emailNotVerified && (
@@ -271,9 +337,10 @@ export default function Login() {
                   </label>
                   <button
                     type="button"
+                    onClick={() => { setShowForgot(true); setForgotEmail(email) }}
                     className="text-sm text-brand dark:text-brand-light hover:underline"
                   >
-                    忘记密码?
+                    {t('login.forgotPassword')}
                   </button>
                 </div>
 
@@ -296,6 +363,7 @@ export default function Login() {
                   </Link>
                 </p>
               </form>
+              )
             ) : (
               <form onSubmit={handlePhoneSubmit} className="space-y-4">
                 <div>
