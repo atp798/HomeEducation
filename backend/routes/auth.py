@@ -308,13 +308,13 @@ class ResetPasswordRequest(BaseModel):
     password: str
 
 
-def _create_password_reset_token(db, user_id: str) -> str:
+def _create_password_reset_token(db, user_id: str, token: str = None) -> str:
     """Create a password reset token (1-hour expiry), replacing any existing unused ones."""
     db.execute(
         "DELETE FROM password_reset_tokens WHERE user_id = ? AND used = 0",
         (user_id,),
     )
-    token = str(uuid.uuid4())
+    token = token or str(uuid.uuid4())
     expires_at = (datetime.now(timezone.utc) + timedelta(hours=1)).strftime("%Y-%m-%d %H:%M:%S")
     db.execute(
         "INSERT INTO password_reset_tokens (id, user_id, token, expires_at) VALUES (?, ?, ?, ?)",
@@ -339,13 +339,16 @@ async def forgot_password(body: ForgotPasswordRequest):
         raise HTTPException(status_code=403, detail="该账号尚未激活，请先查收注册邮件完成激活")
 
     if user:
-        reset_token = _create_password_reset_token(db, user["id"])
-        reset_url = f"{config.frontend_url.rstrip('/')}/reset-password?token={reset_token}"
+        # Generate token first (in-memory only, not yet in DB)
+        raw_token = str(uuid.uuid4())
+        reset_url = f"{config.frontend_url.rstrip('/')}/reset-password?token={raw_token}"
         try:
             send_password_reset_email(body.email, body.email, reset_url)
         except Exception as e:
             logger.error(f"Failed to send password reset email to {body.email}: {e}")
-            # Still return 200 — we don't reveal failures to prevent enumeration
+            raise HTTPException(status_code=500, detail="邮件发送失败，请稍后重试")
+        # Only persist token after email sent successfully
+        _create_password_reset_token(db, user["id"], raw_token)
 
     return {"message": "如果该邮箱已注册，密码重置邮件将在片刻后发送，请查收邮件"}
 
