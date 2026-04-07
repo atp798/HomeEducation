@@ -334,6 +334,10 @@ async def forgot_password(body: ForgotPasswordRequest):
     repo = UserRepository(db)
     user = repo.find_by_email(body.email)
 
+    if user and not user.get("email_verified"):
+        # 未激活用户不能重置密码，防止被恶意触发激活流程
+        raise HTTPException(status_code=403, detail="该账号尚未激活，请先查收注册邮件完成激活")
+
     if user:
         reset_token = _create_password_reset_token(db, user["id"])
         reset_url = f"{config.frontend_url.rstrip('/')}/reset-password?token={reset_token}"
