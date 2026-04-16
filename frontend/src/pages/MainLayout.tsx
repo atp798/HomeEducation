@@ -84,6 +84,13 @@ export default function MainLayout({ defaultTab = 'chat' }: MainLayoutProps) {
         </div>
       </div>
 
+      {/* ICP备案信息 */}
+      <footer className="flex-shrink-0 py-2 px-4 text-center text-xs text-gray-400 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+        <a href="http://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-brand">
+          京ICP备2025119408号-2
+        </a>
+      </footer>
+
       {/* Mobile bottom nav */}
       <nav className="md:hidden flex-shrink-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
         <div className="flex">
