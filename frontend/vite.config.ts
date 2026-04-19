@@ -11,6 +11,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 7194,
+    allowedHosts: ['home-edu.make-it.com.cn', '82.157.28.69', '10.8.0.34'],
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
