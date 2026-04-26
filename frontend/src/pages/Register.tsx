@@ -1,15 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
-import { Eye, EyeOff, RefreshCw, Mail, ArrowLeft, CheckCircle } from 'lucide-react'
+import { Eye, EyeOff, RefreshCw, Mail, ArrowLeft, CheckCircle, X } from 'lucide-react'
 import { authApi } from '../api/client'
 import { useAuthStore } from '../store/authStore'
 import { PasswordStrength } from '../components/PasswordStrength'
 import { useToast } from '../components/Toast'
+import { useTranslation } from '../i18n'
 
 export default function Register() {
   const navigate = useNavigate()
   const { token } = useAuthStore()
   const { showToast } = useToast()
+  const { t } = useTranslation()
+
+  // Agreement / Privacy modal
+  const [showModal, setShowModal] = useState<'agreement' | 'privacy' | null>(null)
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -186,9 +191,87 @@ export default function Register() {
         </div>
 
         <p className="text-center text-xs text-gray-400 dark:text-gray-500 mt-6">
-          注册即表示同意用户协议和隐私政策
+          {t('register.agreementNotice')}
+          <button
+            type="button"
+            onClick={() => setShowModal('agreement')}
+            className="text-brand dark:text-brand-light hover:underline mx-0.5"
+          >
+            {t('agreement.link')}
+          </button>
+          和
+          <button
+            type="button"
+            onClick={() => setShowModal('privacy')}
+            className="text-brand dark:text-brand-light hover:underline mx-0.5"
+          >
+            {t('privacy.link')}
+          </button>
         </p>
+
+        {/* ICP备案信息 */}
+        <footer className="mt-4 py-2 text-center text-xs text-gray-400">
+          <a href="http://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-brand">
+            京ICP备2025119408号-2
+          </a>
+        </footer>
       </div>
+
+      {/* 协议/隐私政策弹窗 */}
+      {showModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={() => setShowModal(null)}
+        >
+          <div
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+                {showModal === 'agreement' ? t('agreement.title') : t('privacy.title')}
+              </h2>
+              <button
+                onClick={() => setShowModal(null)}
+                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="px-6 py-4 overflow-y-auto text-sm text-gray-600 dark:text-gray-400 space-y-3">
+              {showModal === 'agreement' ? (
+                <>
+                  <p>{t('agreement.content.p1')}</p>
+                  <p className="whitespace-pre-line">{t('agreement.content.p2')}</p>
+                  <p className="whitespace-pre-line">{t('agreement.content.p3')}</p>
+                  <p className="whitespace-pre-line">{t('agreement.content.p4')}</p>
+                  <p className="whitespace-pre-line">{t('agreement.content.p5')}</p>
+                  <p className="whitespace-pre-line">{t('agreement.content.p6')}</p>
+                  <p className="whitespace-pre-line">{t('agreement.content.p7')}</p>
+                </>
+              ) : (
+                <>
+                  <p>{t('privacy.content.p1')}</p>
+                  <p className="whitespace-pre-line">{t('privacy.content.p2')}</p>
+                  <p className="whitespace-pre-line">{t('privacy.content.p3')}</p>
+                  <p className="whitespace-pre-line">{t('privacy.content.p4')}</p>
+                  <p className="whitespace-pre-line">{t('privacy.content.p5')}</p>
+                  <p className="whitespace-pre-line">{t('privacy.content.p6')}</p>
+                  <p className="whitespace-pre-line">{t('privacy.content.p7')}</p>
+                </>
+              )}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700">
+              <button
+                onClick={() => setShowModal(null)}
+                className="w-full bg-brand hover:bg-brand-dark text-white font-medium py-2.5 rounded-lg text-sm transition-colors"
+              >
+                {t('modal.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

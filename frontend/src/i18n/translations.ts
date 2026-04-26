@@ -123,6 +123,29 @@ const zh: Record<string, string> = {
   'resetPassword.pwTooShort': '密码至少6位',
   'resetPassword.invalidToken': '重置链接无效或已过期，请重新申请',
   'resetPassword.backToLogin': '返回登录',
+
+  // Agreement & Privacy
+  'agreement.link': '用户协议',
+  'privacy.link': '隐私政策',
+  'login.agreementNotice': '登录即表示同意',
+  'register.agreementNotice': '注册即表示同意',
+  'modal.close': '关闭',
+  'agreement.title': '用户协议',
+  'agreement.content.p1': '欢迎使用家庭教育咨询服务（以下简称"服务"）。访问或使用本服务即表示您同意受以下条款的约束。',
+  'agreement.content.p2': '1. 服务说明\n本服务仅提供家庭教育咨询信息，内容仅供参考，不构成专业医疗、心理或法律建议。用户应自行判断信息的适用性。',
+  'agreement.content.p3': '2. 用户责任\n用户需对账户安全负责，不得利用本服务从事任何违法活动。用户应尊重他人，不发布侮辱、歧视或不当内容。',
+  'agreement.content.p4': '3. 知识产权\n本服务及相关内容归服务提供商所有，受中华人民共和国法律法规保护。未经授权，不得复制、修改或传播。',
+  'agreement.content.p5': '4. 免责声明\n服务提供商不对咨询内容的准确性、完整性或时效性作出任何承诺或保证。因使用本服务造成的任何损失，服务提供商不承担责任。',
+  'agreement.content.p6': '5. 服务变更\n服务提供商保留随时修改或中断服务的权利，恕不另行通知。',
+  'agreement.content.p7': '6. 争议解决\n本协议的解释和执行均适用中华人民共和国法律。如发生争议，双方应协商解决；协商不成的，提交服务提供商所在地有管辖权的人民法院诉讼解决。',
+  'privacy.title': '隐私政策',
+  'privacy.content.p1': '我们高度重视您的个人信息保护。本隐私政策说明了我们如何收集、使用、存储和保护您的信息。',
+  'privacy.content.p2': '1. 信息收集\n我们收集您主动提供的信息（如邮箱地址）以及服务使用过程中自动生成的信息（如登录时间、设备信息）。',
+  'privacy.content.p3': '2. 信息使用\n您的信息用于：提供和维护服务、发送重要通知（如账号激活、密码重置）、改进我们的服务。我们不会将您的个人信息用于广告推送。',
+  'privacy.content.p4': '3. 信息共享\n除以下情况外，我们不会与第三方共享您的个人信息：征得您同意的情况下；根据法律法规要求或政府主管部门要求。',
+  'privacy.content.p5': '4. 信息安全\n我们采用合理的安全措施保护您的个人信息，包括数据加密、访问控制等。但互联网传输存在固有风险，我们无法保证绝对安全。',
+  'privacy.content.p6': '5. 您的权利\n您有权查看、修改或删除您的个人信息。如需行使这些权利，请通过联系我们页面与我们取得联系。',
+  'privacy.content.p7': '6. 政策更新\n我们可能会不时更新本隐私政策。更新后我们将在服务内显著位置发布通知。',
 }
 
 const en: Record<string, string> = {
@@ -248,6 +271,29 @@ const en: Record<string, string> = {
   'resetPassword.pwTooShort': 'Password must be at least 6 characters',
   'resetPassword.invalidToken': 'Reset link is invalid or expired, please request a new one',
   'resetPassword.backToLogin': 'Back to login',
+
+  // Agreement & Privacy
+  'agreement.link': 'Terms of Service',
+  'privacy.link': 'Privacy Policy',
+  'login.agreementNotice': 'By logging in, you agree to',
+  'register.agreementNotice': 'By registering, you agree to',
+  'modal.close': 'Close',
+  'agreement.title': 'Terms of Service',
+  'agreement.content.p1': 'Welcome to the Family Education Consulting Service ("Service"). By accessing or using this Service, you agree to be bound by the following terms.',
+  'agreement.content.p2': "1. Service Description\nThis Service provides family education consulting information for reference only, and does not constitute professional medical, psychological, or legal advice. Users should evaluate the applicability of the information independently.",
+  'agreement.content.p3': "2. User Responsibilities\nUsers are responsible for maintaining the security of their accounts and must not use this Service for any illegal activities. Users should respect others and must not post offensive, discriminatory, or inappropriate content.",
+  'agreement.content.p4': "3. Intellectual Property\nThe Service and related content are owned by the Service Provider and are protected by the laws and regulations of the People's Republic of China. Reproduction, modification, or distribution without authorization is prohibited.",
+  'agreement.content.p5': '4. Disclaimer\nThe Service Provider makes no representations or warranties regarding the accuracy, completeness, or timeliness of consulting content. The Service Provider shall not be liable for any losses arising from the use of this Service.',
+  'agreement.content.p6': '5. Service Changes\nThe Service Provider reserves the right to modify or discontinue the Service at any time without prior notice.',
+  'agreement.content.p7': "6. Dispute Resolution\nThe interpretation and enforcement of this Agreement shall be governed by the laws of the People's Republic of China. In case of any dispute, both parties shall negotiate for resolution; if negotiation fails, litigation shall be filed with the people's court with jurisdiction at the Service Provider's location.",
+  'privacy.title': 'Privacy Policy',
+  'privacy.content.p1': 'We take your personal information protection seriously. This Privacy Policy explains how we collect, use, store, and protect your information.',
+  'privacy.content.p2': '1. Information Collection\nWe collect information you voluntarily provide (such as your email address) and information automatically generated during your use of the Service (such as login time, device information).',
+  'privacy.content.p3': '2. Information Use\nYour information is used to: provide and maintain the Service, send important notifications (such as account activation, password reset), and improve our Service. We will not use your personal information for advertising.',
+  'privacy.content.p4': '3. Information Sharing\nExcept in the following circumstances, we will not share your personal information with third parties: with your consent; when required by laws and regulations or government authorities.',
+  'privacy.content.p5': '5. Information Security\nWe employ reasonable security measures to protect your personal information, including data encryption and access controls. However, internet transmission carries inherent risks and we cannot guarantee absolute security.',
+  'privacy.content.p6': '5. Your Rights\nYou have the right to view, modify, or delete your personal information. To exercise these rights, please contact us through our contact page.',
+  'privacy.content.p7': '6. Policy Updates\nWe may update this Privacy Policy from time to time. After updates, we will post notices in prominent locations within the Service.',
 }
 
 export const translations: Record<Locale, Record<string, string>> = { zh, en }
