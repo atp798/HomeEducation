@@ -1,11 +1,22 @@
-import React, { useState } from 'react'
+import React, { useState, Suspense, lazy } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { MessageSquare, Clock, Settings as SettingsIcon } from 'lucide-react'
 import { useSwipe } from '../hooks/useSwipe'
 import { useTranslation } from '../i18n'
-import Chat from './Chat'
-import History from './History'
-import Settings from './Settings'
+
+// 懒加载子页面 - 只加载当前激活的页面
+const Chat = lazy(() => import('./Chat'))
+const History = lazy(() => import('./History'))
+const Settings = lazy(() => import('./Settings'))
+
+// 子页面加载器
+function TabLoader() {
+  return (
+    <div className="h-full flex items-center justify-center">
+      <div className="w-6 h-6 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+}
 
 export type TabId = 'history' | 'chat' | 'settings'
 
@@ -71,16 +82,22 @@ export default function MainLayout({ defaultTab = 'chat' }: MainLayoutProps) {
       {/* Main content */}
       <div className="flex-1 overflow-hidden">
         <div className={activeTab === 'history' ? 'h-full' : 'hidden'}>
-          <History onSelectSession={(sessionId) => {
-            handleTabChange('chat')
-            navigate(`/chat?sessionId=${sessionId}`)
-          }} />
+          <Suspense fallback={<TabLoader />}>
+            <History onSelectSession={(sessionId) => {
+              handleTabChange('chat')
+              navigate(`/chat?sessionId=${sessionId}`)
+            }} />
+          </Suspense>
         </div>
         <div className={activeTab === 'chat' ? 'h-full' : 'hidden'}>
-          <Chat />
+          <Suspense fallback={<TabLoader />}>
+            <Chat />
+          </Suspense>
         </div>
         <div className={activeTab === 'settings' ? 'h-full' : 'hidden'}>
-          <Settings />
+          <Suspense fallback={<TabLoader />}>
+            <Settings />
+          </Suspense>
         </div>
       </div>
 
