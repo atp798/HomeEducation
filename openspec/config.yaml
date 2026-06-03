@@ -1,0 +1,48 @@
+schema: spec-driven
+
+# Project context — injected into every artifact
+# Keep this short, accurate, and up to date.
+context: |
+  Tech stack:
+    - Backend: Python 3.x + FastAPI + uvicorn, SQLite (file-based), JWT auth (PyJWT), bcrypt
+    - Frontend: React 18 + Vite 5 + TypeScript, Zustand state, react-router, react-markdown
+    - AI: OpenAI-compatible streaming (SSE) + RAG (TF-IDF + jieba Chinese tokenizer)
+    - Infra: Dev server on :3001 (backend) / :7194 (frontend), no nginx in front, SQLite file DB
+
+  Domain: 家庭教育咨询 (Home Education Consulting) web app
+  - Bilingual UI (zh-CN primary, i18n hook already wired)
+  - Mobile-first responsive design
+  - AI chat with streaming responses, RAG-augmented from a 35-file knowledge base
+
+  Conventions:
+    - Conventional commits in English (feat:, fix:, chore:, docs:, refactor:)
+    - Backend routes under backend/routes/, services in backend/services/
+    - Frontend pages lazy-loaded, vendor chunks split in vite.config.ts
+    - All page-level components use lazy() + Suspense with a PageLoader fallback
+    - Manual chunks: vendor-react, vendor-markdown, vendor-state, vendor-api, vendor-icons, vendor-date
+    - All API endpoints live under backend/routes/*.py and are mounted without /api prefix (Vite proxy strips it)
+    - SSE streaming must set x-accel-buffering: no and cache-control: no-cache via the Vite proxy
+
+  Style:
+    - TypeScript strict
+    - Python: standard library + small deps, prefer stdlib where reasonable
+    - Tailwind CSS for frontend styling
+    - Dark mode via useTheme hook (light/dark/system)
+
+  Testing:
+    - Frontend: vitest + @testing-library/react (jsdom)
+    - Backend: pytest is the convention (no test suite committed yet)
+
+# Per-artifact rules — enforce what matters for THIS project
+rules:
+  proposal:
+    - Always include a "Rollback plan" section
+    - Identify affected files by directory (backend/, frontend/, docs/)
+    - Keep proposals under 500 words
+  tasks:
+    - Break tasks into chunks of max 2 hours
+    - Each task must list acceptance criteria
+    - Order tasks so verification can happen incrementally
+  design:
+    - Include a short "Trade-offs" section
+    - Mention any frontend bundle size impact
