@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# scripts/pre-commit
+# Git pre-commit hook. Symlink this file to .git/hooks/pre-commit:
+#   ln -sf ../../scripts/pre-commit .git/hooks/pre-commit
+# (or just run: bash scripts/install-hooks.sh)
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# 1. Ensure AGENTS.md and CLAUDE.md are in sync.
+if [[ -f "$REPO_ROOT/scripts/sync-agent-docs.sh" ]]; then
+  bash "$REPO_ROOT/scripts/sync-agent-docs.sh" --force
+fi
+
+# 2. (Optional) Add CLAUDE.md to the index in case the symlink was just (re)created
+cd "$REPO_ROOT"
+git add -A CLAUDE.md AGENTS.md 2>/dev/null || true
+
+# 3. Quick sanity check: refuse to commit if .env is staged
+if git diff --cached --name-only | grep -E '(^|/)(\.env|backend/\.env)$' >/dev/null; then
+  echo "ERROR: refusing to commit a .env file." >&2
+  echo "Move secrets to a local .env and add the real one to .gitignore." >&2
+  exit 1
+fi

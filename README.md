@@ -1,125 +1,118 @@
 # 家庭教育咨询 - AI Home Education Consulting
 
-A full-stack AI-powered home education consulting web application built with Node.js + Express (backend) and React + Vite (frontend).
+A full-stack AI-powered home education consulting web application built with **Python + FastAPI** (backend) and **React + Vite + TypeScript** (frontend).
+
+> Looking for documentation? Start at [`docs/README.md`](docs/README.md).
+> AI coding agent? Read [`AGENTS.md`](AGENTS.md) (or `CLAUDE.md` — they're the same file).
 
 ## Features
 
 - AI chat consulting powered by OpenAI-compatible APIs with real-time SSE streaming
-- Email/password registration and login
+- RAG augmentation from a curated Chinese-language knowledge base (35 files, ~396 KB)
+- Email/password registration and login, with email verification and password reset flows
 - Phone number + OTP login (mock SMS for development)
 - Session history with filter, archive, and delete
-- User settings: theme (light/dark/system), notifications, DND hours
-- Security center: login record history
+- User settings: theme (light/dark/system), notifications, DND hours, language
 - Mobile-first responsive design with swipe gesture navigation
 - Dark mode support
+- Bilingual UI (zh-CN primary, English stretch goal)
 
 ## Project Structure
 
 ```
 HomeEducation/
-├── backend/          Node.js + Express + TypeScript backend
+├── backend/                 Python + FastAPI backend
+│   ├── main.py              FastAPI app, lifespan, CORS, route mounting
+│   ├── config.py            Env-driven Config singleton
+│   ├── database.py          init_db() — idempotent schema
+│   ├── dependencies.py      current_user / current_user_optional
+│   ├── routes/              auth.py, chat.py, settings.py
+│   ├── repositories/        Data access layer
+│   ├── services/rag.py      TF-IDF + jieba RAG service (in-process)
+│   ├── data/
+│   │   ├── app.db           SQLite (auto-created, gitignored)
+│   │   └── llm_ref/         RAG knowledge base (35 .txt files)
+│   ├── requirements.txt
+│   └── .env                 Local secrets (never commit)
+├── frontend/                React + Vite + TypeScript frontend
+│   ├── vite.config.ts       Manual vendor chunks, dev server, /api proxy
 │   ├── src/
-│   │   ├── config.ts          App configuration
-│   │   ├── index.ts           Express server entry point
-│   │   ├── db/
-│   │   │   ├── adapter.ts     DatabaseAdapter interface
-│   │   │   ├── sqlite.ts      SQLite implementation
-│   │   │   └── migrations.ts  Database schema
-│   │   ├── repositories/      Data access layer
-│   │   ├── routes/            API route handlers
-│   │   ├── services/ai.ts     OpenAI-compatible streaming client
-│   │   ├── middleware/auth.ts  JWT middleware
-│   │   └── utils/crypto.ts    Password & OTP utilities
-│   └── data/                  SQLite database (auto-created)
-└── frontend/         React + Vite + TypeScript frontend
-    └── src/
-        ├── api/client.ts      HTTP + SSE API client
-        ├── store/             Zustand state stores
-        ├── hooks/             Custom React hooks
-        ├── components/        Reusable UI components
-        └── pages/             Application pages
+│   │   ├── App.tsx          Router + lazy page imports
+│   │   ├── api/client.ts    HTTP + SSE client
+│   │   ├── store/           Zustand state stores
+│   │   ├── hooks/           Custom React hooks
+│   │   ├── i18n/            Translations (zh-CN)
+│   │   ├── components/      Reusable UI components
+│   │   └── pages/           Route-level components (all lazy)
+│   └── tests/               Vitest unit tests
+├── openspec/                Spec-driven development artifacts
+│   ├── config.yaml          Project context + per-artifact rules
+│   ├── specs/               Source-of-truth specs (delta format)
+│   └── changes/             In-flight + archived changes
+├── docs/                    Documentation
+│   ├── architecture/        System design
+│   ├── guides/              How-to (getting-started, deployment, openspec, ...)
+│   ├── adr/                 Architecture decision records
+│   ├── investigations/      Post-mortems and bug investigations
+│   └── api/                 HTTP API reference
+├── scripts/                 Helper scripts
+│   └── sync-agent-docs.sh   Keep AGENTS.md and CLAUDE.md in sync
+├── AGENTS.md                Agent-facing instructions (symlinked to CLAUDE.md)
+├── CLAUDE.md                Symlink → AGENTS.md
+└── OpenSpec/                The OpenSpec framework source (vendored; not used at runtime)
 ```
 
-## Setup
-
-### 1. Install Dependencies
+## Quick start
 
 ```bash
 # Backend
 cd backend
-npm install
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+# Edit .env (copy from a teammate) — set JWT_SECRET, AI_BASE_URL, AI_API_KEY, AI_MODEL
+python3 main.py               # → http://localhost:3001
 
-# Frontend
-cd ../frontend
-npm install
-```
-
-### 2. Configure Backend
-
-```bash
-cd backend
-cp .env.example .env
-```
-
-Edit `.env` and set your values:
-
-```env
-PORT=3001
-JWT_SECRET=your-long-random-secret-key-here
-
-# AI API (OpenAI-compatible)
-AI_BASE_URL=https://api.openai.com/v1
-AI_API_KEY=sk-your-api-key-here
-AI_MODEL=gpt-4o-mini
-
-# Database
-DB_PATH=./data/app.db
-```
-
-### 3. Run Development Servers
-
-In two separate terminals:
-
-```bash
-# Terminal 1 - Backend
-cd backend
-npm run dev
-
-# Terminal 2 - Frontend
+# Frontend (separate terminal)
 cd frontend
-npm run dev
+npm install
+npm run dev                    # → http://localhost:7194
 ```
 
-The app will be available at **http://localhost:5173**
+Full setup: see [`docs/guides/getting-started.md`](docs/guides/getting-started.md).
 
-The backend API runs at **http://localhost:3001**
+## OpenSpec workflow
 
-## AI Configuration
-
-The backend uses an OpenAI-compatible API format. You can use:
-
-- **OpenAI**: Set `AI_BASE_URL=https://api.openai.com/v1` and your OpenAI API key
-- **Local Ollama**: Set `AI_BASE_URL=http://localhost:11434/v1` and `AI_MODEL=llama3`
-- **Other providers**: Any OpenAI-compatible endpoint works
-
-## Database
-
-The app uses SQLite by default with a repository pattern that makes it easy to swap to MySQL or PostgreSQL. To add a new database backend, implement the `DatabaseAdapter` interface in `backend/src/db/adapter.ts`.
-
-## Production Build
+For non-trivial changes (new features, multi-file edits, API changes), use OpenSpec:
 
 ```bash
-# Build backend
-cd backend
-npm run build
-
-# Build frontend
-cd frontend
-npm run build
+# In your AI coding agent:
+/opsx:propose "<idea>"   # drafts proposal + design + tasks + spec deltas
+/opsx:apply              # implement task by task
+/opsx:archive            # finalize
 ```
 
-## Development Notes
+Details: [`docs/guides/openspec-workflow.md`](docs/guides/openspec-workflow.md).
 
-- OTP codes are returned in the API response in development mode (mock SMS)
-- The database file is created automatically at `backend/data/app.db`
-- JWT tokens expire in 7 days
+## Documentation map
+
+| Audience       | Start here                                                              |
+|----------------|-------------------------------------------------------------------------|
+| New dev        | [`docs/guides/getting-started.md`](docs/guides/getting-started.md)      |
+| Adding feature | [`docs/guides/openspec-workflow.md`](docs/guides/openspec-workflow.md)  |
+| Deploying      | [`docs/guides/deployment.md`](docs/guides/deployment.md)                |
+| Reviewing      | [`docs/adr/`](docs/adr/) + [`docs/architecture/`](docs/architecture/)   |
+| API consumer   | [`docs/api/`](docs/api/)                                                |
+
+## Contributing
+
+1. Read [`AGENTS.md`](AGENTS.md).
+2. Branch off `main` (`feat/...`, `fix/...`, `chore/...`).
+3. Use OpenSpec for non-trivial changes.
+4. Conventional commits in English.
+5. Update docs in the same PR.
+6. Add an ADR in `docs/adr/` for any significant design decision.
+7. Verify with `npm run build` (frontend) and a smoke test (backend).
+
+## License
+
+Private project. All rights reserved.
