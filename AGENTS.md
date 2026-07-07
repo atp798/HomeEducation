@@ -115,6 +115,47 @@ OpenSpec. See `docs/guides/openspec-workflow.md`. The four commands:
 
 Skip OpenSpec for typo fixes, doc tweaks, one-line bug fixes, and dep bumps.
 
+## Coding methodology (superpowers + gstack)
+
+This project follows the [superpowers](https://github.com/obra/superpowers) methodology and
+uses [gstack](https://github.com/garrytan/gstack) skills when running inside OpenClaw or
+Claude Code sessions. These complement (do not replace) the OpenSpec workflow above.
+
+- **Brainstorm before coding.** For new features, run `gstack-openclaw-office-hours` (6 forcing
+  questions) or `superpowers-brainstorming` to interrogate the idea. Do NOT skip straight to
+  `/opsx:propose` — the spec is only as good as the thinking behind it.
+- **Spec → plan → apply.** OpenSpec's `/opsx:propose` is the spec. Use
+  `superpowers-writing-plans` to break the apply phase into 2–5 minute tasks with exact file
+  paths, complete code, and verification steps before `/opsx:apply` starts.
+- **TDD.** New behavior gets a failing test first. Frontend: vitest + Testing Library (already
+  wired in `frontend/tests/`). Backend: pytest (start `backend/tests/` if not present). RED →
+  GREEN → REFACTOR. Delete code written before its test.
+- **Subagent-driven execution.** Once the plan is ready, dispatch a fresh subagent per task
+  with two-stage review (spec compliance, then code quality). Don't try to apply a 30-task
+  change in one context window.
+- **Debugging.** For non-obvious bugs, use `gstack-openclaw-investigate` or
+  `superpowers-systematic-debugging` (4-phase root cause: reproduce → isolate → understand →
+  fix). Verify the fix before declaring done.
+- **Periodic retro.** Run `gstack-openclaw-retro` weekly to surface process improvements.
+
+### Skills installed in this OpenClaw workspace
+
+| Skill | When to use |
+|---|---|
+| `gstack-openclaw-office-hours` | Before any new feature / product idea |
+| `gstack-openclaw-ceo-review` | Strategic challenge (4 scope modes) |
+| `gstack-openclaw-investigate` | Non-obvious bug, root-cause hunt |
+| `gstack-openclaw-retro` | Weekly engineering retrospective |
+| `superpowers` | Full methodology bundle (brainstorm, plans, TDD, subagent) |
+| `gstack` | Headless-browser QA + dogfooding |
+
+Invoke by saying "load gstack" / "use superpowers" and naming the skill, or use the
+`/gstack-openclaw-<name>` / `/superpowers` slash commands.
+
+> **How this composes with OpenSpec.** OpenSpec owns the *what* (proposal, deltas, archive).
+> superpowers + gstack own the *how* (interrogation, task sizing, TDD, subagent dispatch).
+> They are designed to compose — use both.
+
 ## Banned practices
 
 - ❌ Don't run Claude Code without `/login` first.
@@ -179,3 +220,16 @@ bash scripts/sync-agent-docs.sh
 # Run frontend tests
 cd frontend && npm test
 ```
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+When the user types `/graphify`, invoke the `skill` tool with `skill: "graphify"` before doing anything else.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- Dirty graphify-out/ files are expected after hooks or incremental updates; dirty graph files are not a reason to skip graphify. Only skip graphify if the task is about stale or incorrect graph output, or the user explicitly says not to use it.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

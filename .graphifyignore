@@ -1,0 +1,13 @@
+node_modules/
+dist/
+build/
+out/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.cache/
+*.min.js
+*.bundle.js
+.graphifyignore
+graphify-out/cache/
