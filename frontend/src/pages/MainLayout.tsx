@@ -18,6 +18,22 @@ function TabLoader() {
   )
 }
 
+// ICP备案信息 — 共享组件，放到每个 tab 内容的底部（在可滚动区域内）
+function IcpFooter() {
+  return (
+    <footer className="flex-shrink-0 py-2 px-4 text-center text-xs text-gray-400 bg-gray-50 dark:bg-gray-950">
+      <a
+        href="http://beian.miit.gov.cn"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="hover:text-brand"
+      >
+        京ICP备2025119408号-2
+      </a>
+    </footer>
+  )
+}
+
 export type TabId = 'history' | 'chat' | 'settings'
 
 interface MainLayoutProps {
@@ -79,36 +95,41 @@ export default function MainLayout({ defaultTab = 'chat' }: MainLayoutProps) {
         ))}
       </nav>
 
-      {/* Main content */}
-      <div className="flex-1 overflow-hidden">
-        <div className={activeTab === 'history' ? 'h-full' : 'hidden'}>
-          <Suspense fallback={<TabLoader />}>
-            <History onSelectSession={(sessionId) => {
-              handleTabChange('chat')
-              navigate(`/chat?sessionId=${sessionId}`)
-            }} />
-          </Suspense>
+      {/* Main content — the only scrollable region. Each tab is a flex column
+          with the page on top (flex-1) and the ICP footer at the very bottom.
+          This way the nav stays fixed and the ICP sits at the bottom of the
+          scrollable area on every page. */}
+      <div className="flex-1 overflow-y-auto">
+        <div className={activeTab === 'history' ? 'min-h-full flex flex-col' : 'hidden'}>
+          <div className="flex-1">
+            <Suspense fallback={<TabLoader />}>
+              <History onSelectSession={(sessionId) => {
+                handleTabChange('chat')
+                navigate(`/chat?sessionId=${sessionId}`)
+              }} />
+            </Suspense>
+          </div>
+          <IcpFooter />
         </div>
-        <div className={activeTab === 'chat' ? 'h-full' : 'hidden'}>
-          <Suspense fallback={<TabLoader />}>
-            <Chat />
-          </Suspense>
+        <div className={activeTab === 'chat' ? 'min-h-full flex flex-col' : 'hidden'}>
+          <div className="flex-1">
+            <Suspense fallback={<TabLoader />}>
+              <Chat />
+            </Suspense>
+          </div>
+          <IcpFooter />
         </div>
-        <div className={activeTab === 'settings' ? 'h-full' : 'hidden'}>
-          <Suspense fallback={<TabLoader />}>
-            <Settings />
-          </Suspense>
+        <div className={activeTab === 'settings' ? 'min-h-full flex flex-col' : 'hidden'}>
+          <div className="flex-1">
+            <Suspense fallback={<TabLoader />}>
+              <Settings />
+            </Suspense>
+          </div>
+          <IcpFooter />
         </div>
       </div>
 
-      {/* ICP备案信息 */}
-      <footer className="flex-shrink-0 py-2 px-4 text-center text-xs text-gray-400 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-        <a href="http://beian.miit.gov.cn" target="_blank" rel="noopener noreferrer" className="hover:text-brand">
-          京ICP备2025119408号-2
-        </a>
-      </footer>
-
-      {/* Mobile bottom nav */}
+      {/* Mobile bottom nav — fixed at viewport bottom, outside the scroll area */}
       <nav className="md:hidden flex-shrink-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
         <div className="flex">
           {tabs.map((tab) => (

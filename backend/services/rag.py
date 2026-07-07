@@ -4,6 +4,9 @@ RAG (Retrieval-Augmented Generation) context manager.
 At startup it loads all .txt knowledge-base files, splits them into
 paragraph-level chunks, and builds an in-memory TF-IDF index.
 
+The built index is cached to disk (data/.rag_index.pkl) so subsequent
+restarts skip the (1-2s) rebuild when the KB files haven't changed.
+
 At inference time `rag_service.build_context(query)` returns a formatted
 context string that is prepended to the AI system prompt, or None when
 the query has no relevant match in the KB.
@@ -14,12 +17,22 @@ from __future__ import annotations
 
 import math
 import logging
+import os
+import pickle
 from pathlib import Path
 from typing import Optional
 
 # Suppress jieba's verbose startup messages before importing it
 logging.getLogger("jieba").setLevel(logging.WARNING)
 import jieba  # noqa: E402
+
+# Touch jieba to warm the dictionary cache at import time.
+# This overlaps with the rest of the backend's import graph
+# instead of being paid later during rag_service.load().
+try:
+    _ = list(jieba.cut("预热"))
+except Exception:
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +44,11 @@ KB_DIR = (
     / "llm_ref"
     / "home-edu-etl-llm_combine-prompt"
 )
+
+# Disk cache for the built index. Skip rebuild on restart when none of the
+# KB files have been modified since the cache was written.
+# Set OPENSPEC_RAG_NO_CACHE=1 to force a rebuild (useful for debugging).
+CACHE_PATH = Path(__file__).parent.parent / "data" / ".rag_index.pkl"
 
 # Chunk sizing
 MAX_PARA_CHARS = 600   # split paragraphs longer than this on sentence boundaries
@@ -127,6 +145,9 @@ class _RAGService:
         Load all KB .txt files, chunk them, and build the TF-IDF index.
         Idempotent — safe to call multiple times (second call is a no-op).
         Blocking — run it once at startup or inside run_in_executor.
+
+        Uses a disk cache (CACHE_PATH) keyed by KB file mtimes so subsequent
+        startups skip the rebuild when the KB hasn't changed.
         """
         if self._ready:
             return
@@ -137,6 +158,18 @@ class _RAGService:
             return
 
         files = sorted(KB_DIR.glob("*.txt"))
+        if not files:
+            logger.warning("RAG: no .txt files in %s", KB_DIR)
+            self._ready = True
+            return
+
+        # ── Try the disk cache first ────────────────────────────────
+        if not os.environ.get("OPENSPEC_RAG_NO_CACHE"):
+            cache_hit = self._load_from_cache(files)
+            if cache_hit:
+                return
+
+        # ── Cold build ──────────────────────────────────────────────
         logger.info("RAG: loading %d knowledge-base files…", len(files))
 
         for path in files:
@@ -183,6 +216,60 @@ class _RAGService:
             "RAG: index ready — %d chunks, %d vocab terms",
             n, len(self._idf),
         )
+
+        # Persist the cache for next start.
+        self._save_to_cache(files)
+
+    # ── disk cache helpers ─────────────────────────────────────────
+
+    @staticmethod
+    def _cache_key(files: list[Path]) -> tuple:
+        """Stable key derived from the KB filenames and their mtimes."""
+        return tuple((p.name, p.stat().st_mtime) for p in files)
+
+    def _load_from_cache(self, files: list[Path]) -> bool:
+        if not CACHE_PATH.exists():
+            return False
+        try:
+            with CACHE_PATH.open("rb") as f:
+                payload = pickle.load(f)
+        except Exception as exc:
+            logger.warning("RAG: cache read failed (%s) — rebuilding", exc)
+            return False
+
+        if payload.get("key") != self._cache_key(files):
+            logger.info("RAG: KB changed since last build — rebuilding")
+            return False
+
+        self._chunks = payload["chunks"]
+        self._tfidf = payload["tfidf"]
+        self._idf = payload["idf"]
+        self._ready = True
+        logger.info(
+            "RAG: loaded index from cache — %d chunks, %d vocab terms",
+            len(self._chunks), len(self._idf),
+        )
+        return True
+
+    def _save_to_cache(self, files: list[Path]) -> None:
+        try:
+            CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+            tmp = CACHE_PATH.with_suffix(".pkl.tmp")
+            with tmp.open("wb") as f:
+                pickle.dump(
+                    {
+                        "key": self._cache_key(files),
+                        "chunks": self._chunks,
+                        "tfidf": self._tfidf,
+                        "idf": self._idf,
+                    },
+                    f,
+                    protocol=pickle.HIGHEST_PROTOCOL,
+                )
+            os.replace(tmp, CACHE_PATH)
+            logger.info("RAG: cached index at %s", CACHE_PATH)
+        except Exception as exc:
+            logger.warning("RAG: cache write failed (%s) — non-fatal", exc)
 
     def _make_vec(self, tokens: list[str]) -> dict[str, float]:
         if not tokens:

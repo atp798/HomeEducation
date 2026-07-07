@@ -19,26 +19,37 @@ export default defineConfig({
     cssCodeSplit: true,
     rollupOptions: {
       output: {
+        // Manual chunk strategy — keep it small and conservative.
+        //
+        // The page chunks (Login, Register, Chat, ...) are already lazy via
+        // React.lazy() in App.tsx, so the *real* page-download cost is just
+        // the Login chunk (3.6 KB gz) plus its transitive deps. The big
+        // vendor-* chunks are the unavoidable cost of a React app.
+        //
+        // Trade-off: naming a chunk makes Rollup treat it as "always
+        // available" and include it in the entry's static modulepreload
+        // list. We only do that for libraries that genuinely need to be
+        // preloaded for the first paint. Everything else auto-splits with
+        // its consumer.
         manualChunks(id) {
-          if (!id.includes('node_modules')) return
-          // Core React - MUST be first to avoid circular chunks with vendor-misc
+          if (!id.includes('node_modules')) return undefined
+
+          // Core React — preloaded, cacheable, rarely changes
           if (['react', 'react-dom', 'react-router-dom'].some(m => id.includes(m))) {
             return 'vendor-react'
           }
-          // Markdown + its dependencies (also depends on react/unist)
-          if (['react-markdown', 'remark-gfm', 'rehype', 'unist', 'mdast', 'unist'].some(m => id.includes(m))) {
-            return 'vendor-markdown'
-          }
-          // Icons - split lucide separately since it's huge (46M)
-          if (id.includes('lucide-react')) return 'vendor-icons'
-          // date-fns is also large - separate chunk
-          if (id.includes('date-fns')) return 'vendor-date'
-          // State management
+
+          // State management — used by every page via the auth store
           if (id.includes('zustand')) return 'vendor-state'
-          // API client
+
+          // HTTP client — used by api/client.ts which is imported by every page
           if (id.includes('axios')) return 'vendor-api'
-          // All other vendor code (should not depend on react to avoid cycles)
-          return 'vendor-misc'
+
+          // Everything else auto-splits with its consumer. If a lib is
+          // only reachable from a lazy page (e.g. react-markdown is only
+          // imported by MessageBubble which is only imported by Chat), it
+          // ends up inside that page's chunk and is NOT preloaded.
+          return undefined
         },
       },
     },

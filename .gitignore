@@ -74,6 +74,10 @@ db.sqlite3-journal
 *.db-shm
 *.db-wal
 
+# RAG index cache (regenerated automatically by services/rag.py)
+data/.rag_index.pkl
+data/.rag_index.pkl.tmp
+
 # Flask stuff:
 instance/
 .webassets-cache
