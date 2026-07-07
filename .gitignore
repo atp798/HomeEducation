@@ -1,9 +1,14 @@
 .claude
+.opencode
 node_modules
 
 # Vendored OpenSpec framework source — not part of this project
 # We use OpenSpec via the `openspec` CLI; the source is cloned here for reference only.
 /OpenSpec/
+
+# Local knowledge-graph output from the graphify AST walker. Regenerated
+# per-machine via `graphify update .` — keep it out of the repo.
+graphify-out/
 
 #########################################
 # below is generated for python dev automatically
