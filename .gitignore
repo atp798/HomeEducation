@@ -80,8 +80,8 @@ db.sqlite3-journal
 *.db-wal
 
 # RAG index cache (regenerated automatically by services/rag.py)
-data/.rag_index.pkl
-data/.rag_index.pkl.tmp
+/backend/data/.rag_index.pkl
+/backend/data/.rag_index.pkl.tmp
 
 # Flask stuff:
 instance/
